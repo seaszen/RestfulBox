@@ -16,6 +16,7 @@ import io.github.newhoo.restkit.feature.javaimpl.helper.PsiAnnotationHelper;
 import io.github.newhoo.restkit.restful.RequestHelper;
 import io.github.newhoo.restkit.restful.RequestResolver;
 import io.github.newhoo.restkit.restful.ep.RestfulResolverProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.asJava.LightClassUtilsKt;
 import org.jetbrains.kotlin.name.FqName;
@@ -72,7 +73,10 @@ public class JaxrsKotlinJavaResolver extends JaxrsJavaResolver {
                     if (methodMethodPath != null) {
                         String requestPath = RequestHelper.getCombinedPath(classUriPath, methodMethodPath.getPath());
                         RestItem item = new PsiRestItem(requestPath, methodMethodPath.getMethod(), module.getName(), getFrameworkName(), fun, this);
-                        item.setPackageName(fqName != null ? fqName.asString() : fun.getContainingKtFile().getName().replace(".kt", ""));
+                        String controllerName = fqName != null && StringUtils.isNotEmpty(fqName.asString())
+                                ? fqName.asString()
+                                : StringUtils.defaultIfBlank(fun.getContainingKtFile().getName().replace(".kt", ""), "Unknown");
+                        item.setPackageName(controllerName);
                         itemList.add(item);
                     }
                 }

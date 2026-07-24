@@ -21,7 +21,6 @@ import io.github.newhoo.restkit.config.global.GlobalSetting;
 import io.github.newhoo.restkit.i18n.RestBundle;
 import io.github.newhoo.restkit.intellij.BaseAnAction;
 import io.github.newhoo.restkit.intellij.CompactHelper;
-import io.github.newhoo.restkit.common.LicenseDialog;
 import io.github.newhoo.restkit.toolwindow.parameter.library.RestParameterListener;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NonNls;
@@ -85,12 +84,7 @@ public class RestServiceClient extends JPanel implements DataProvider {
                                 new BaseAnAction(() -> RestBundle.message("toolkit.common.btn.new")) {
                                     @Override
                                     public void actionPerformed(@NotNull AnActionEvent e) {
-                                        if (multiTabbedClientPane.getTabCount() > 1) {
-                                            new LicenseDialog(null).show();
-                                            return;
-                                        }
-                                        multiTabbedClientPane.addTab("New", new RestServiceClientPanel(project, true));
-                                        multiTabbedClientPane.setSelectedIndex(multiTabbedClientPane.getTabCount() - 1);
+                                        addNewClientTab("New");
                                     }
                                 },
                                 new BaseAnAction(() -> RestBundle.message("toolkit.common.btn.rename")) {
@@ -152,15 +146,15 @@ public class RestServiceClient extends JPanel implements DataProvider {
         project.getMessageBus().connect(project).subscribe(REST_SERVICE_SELECT, new RestServiceListener() {
             @Override
             public void select(RestItem serviceItem) {
+                fillCurrentClient(serviceItem);
+            }
+
+            @Override
+            public void generateInNewTab(RestItem serviceItem) {
                 if (multiTabbedClientPane != null) {
-                    RestServiceClientPanel selectedComponent = (RestServiceClientPanel) multiTabbedClientPane.getSelectedComponent();
-                    if (selectedComponent != null) {
-                        selectedComponent.showServiceDetail(serviceItem);
-                    } else {
-                        RestServiceClientPanel restServiceClientPanel = new RestServiceClientPanel(project, false);
-                        multiTabbedClientPane.addTab("Default", restServiceClientPanel);
-                        multiTabbedClientPane.setSelectedIndex(multiTabbedClientPane.getTabCount() - 1);
-                        restServiceClientPanel.showServiceDetail(serviceItem);
+                    RestServiceClientPanel panel = addNewClientTab(tabTitleFromUrl(serviceItem.getUrl()));
+                    if (panel != null) {
+                        panel.showServiceDetail(serviceItem);
                     }
                 } else if (singleClientPanel != null) {
                     singleClientPanel.showServiceDetail(serviceItem);
@@ -178,6 +172,85 @@ public class RestServiceClient extends JPanel implements DataProvider {
                 }
             }
         });
+    }
+
+    private void fillCurrentClient(RestItem serviceItem) {
+        if (multiTabbedClientPane != null) {
+            RestServiceClientPanel selectedComponent = (RestServiceClientPanel) multiTabbedClientPane.getSelectedComponent();
+            if (selectedComponent != null) {
+                selectedComponent.showServiceDetail(serviceItem);
+            } else {
+                RestServiceClientPanel restServiceClientPanel = new RestServiceClientPanel(project, false);
+                multiTabbedClientPane.addTab("Default", restServiceClientPanel);
+                multiTabbedClientPane.setSelectedIndex(multiTabbedClientPane.getTabCount() - 1);
+                restServiceClientPanel.showServiceDetail(serviceItem);
+            }
+        } else if (singleClientPanel != null) {
+            singleClientPanel.showServiceDetail(serviceItem);
+        }
+    }
+
+    /**
+     * Create and select a new client tab.
+     */
+    @Nullable
+    private RestServiceClientPanel addNewClientTab(String title) {
+        if (multiTabbedClientPane == null) {
+            return null;
+        }
+        RestServiceClientPanel panel = new RestServiceClientPanel(project, true);
+        multiTabbedClientPane.addTab(StringUtils.defaultIfBlank(title, "New"), panel);
+        multiTabbedClientPane.setSelectedIndex(multiTabbedClientPane.getTabCount() - 1);
+        return panel;
+    }
+
+    /**
+     * Tab title: first path segment + ..... + last path segment.
+     * e.g. /erp/finance-payment/create -> erp.....create
+     * Single segment keeps as-is: /create -> create
+     */
+    @NotNull
+    private static String tabTitleFromUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return "New";
+        }
+        String path = url.trim();
+        int queryIdx = path.indexOf('?');
+        if (queryIdx >= 0) {
+            path = path.substring(0, queryIdx);
+        }
+        int fragmentIdx = path.indexOf('#');
+        if (fragmentIdx >= 0) {
+            path = path.substring(0, fragmentIdx);
+        }
+        int schemeIdx = path.indexOf("://");
+        if (schemeIdx >= 0) {
+            int pathStart = path.indexOf('/', schemeIdx + 3);
+            path = pathStart >= 0 ? path.substring(pathStart) : "";
+        }
+        path = StringUtils.strip(path, "/");
+        if (StringUtils.isBlank(path)) {
+            return "New";
+        }
+        String first = null;
+        String last = null;
+        int count = 0;
+        for (String segment : path.split("/")) {
+            if (StringUtils.isNotBlank(segment)) {
+                if (first == null) {
+                    first = segment;
+                }
+                last = segment;
+                count++;
+            }
+        }
+        if (count == 0) {
+            return "New";
+        }
+        if (count == 1) {
+            return first;
+        }
+        return first + "..." + last;
     }
 
     void cleanup() {

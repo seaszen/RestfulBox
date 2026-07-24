@@ -32,6 +32,8 @@ public class RestConstant {
     public static final String HTTP_BASE_URL_PLACEHOLDER = PLACEHOLDER_BASE_URL;
     public static final String HTTP_BASE_URL_DEFAULT = "http://localhost:8080";
     public static final String HTTP_TIMEOUT = "timeout";
+    public static final String HTTP_CONNECTION_TIMEOUT = "connectionTimeout";
+    public static final String HTTP_ENABLE_COOKIE = "enableCookie";
     public static final String HTTP_PROJECT = "project";
     public static final String HTTP_P12_PATH = "p12Path";
     public static final String HTTP_P12_CONTENT = "p12Content";

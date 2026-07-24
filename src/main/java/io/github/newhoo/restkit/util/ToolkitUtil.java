@@ -132,6 +132,19 @@ public class ToolkitUtil {
         return list;
     }
 
+    /**
+     * Add header if key is absent (case-insensitive).
+     */
+    public static void putHeaderIfAbsent(List<KV> headers, String key, String value) {
+        if (headers == null || StringUtils.isBlank(key)) {
+            return;
+        }
+        boolean exists = headers.stream().anyMatch(h -> h != null && key.equalsIgnoreCase(h.getKey()));
+        if (!exists) {
+            headers.add(new KV(key, value));
+        }
+    }
+
     public static String getUploadFileDescriptor(String filepath) {
         return HTTP_FILE_PREFIX + filepath + HTTP_FILE_POSTFIX;
     }

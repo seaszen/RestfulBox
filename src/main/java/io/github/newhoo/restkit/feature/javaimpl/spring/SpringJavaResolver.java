@@ -14,6 +14,7 @@ import io.github.newhoo.restkit.common.KV;
 import io.github.newhoo.restkit.common.RestItem;
 import io.github.newhoo.restkit.feature.javaimpl.MethodPath;
 import io.github.newhoo.restkit.feature.javaimpl.config.JavaFilterSetting;
+import io.github.newhoo.restkit.feature.javaimpl.helper.PsiClassHelper;
 import io.github.newhoo.restkit.intellij.JavaCompactHelper;
 import io.github.newhoo.restkit.restful.RequestResolver;
 import io.github.newhoo.restkit.restful.ep.RestfulResolverProvider;
@@ -86,7 +87,7 @@ public class SpringJavaResolver extends BaseSpringResolver {
                         continue;
                     }
                     List<RestItem> serviceItemList = getRequestItemList(psiClass, module);
-                    serviceItemList.forEach(e -> e.setPackageName(psiClass.getQualifiedName()));
+                    serviceItemList.forEach(e -> e.setPackageName(PsiClassHelper.resolveControllerName(psiClass)));
                     itemList.addAll(serviceItemList);
                 }
             }

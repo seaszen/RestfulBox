@@ -2,6 +2,8 @@ package io.github.newhoo.restkit.common;
 
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,7 +21,7 @@ public class RestClientData {
     private String url;
     private String method;
     private Map<String, String> config;
-    private Map<String, String> headers;
+    private List<KV> headers = Collections.emptyList();
     private Map<String, String> params;
     private String body;
 }

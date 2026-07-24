@@ -1,5 +1,6 @@
 package io.github.newhoo.restkit.restful;
 
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import io.github.newhoo.restkit.common.NotProguard;
@@ -149,7 +150,8 @@ public class RequestHelper {
                                          return o1.getModuleName().compareToIgnoreCase(o2.getModuleName());
                                      }
                                  }.thenComparingInt(o -> getProtocolOrder(o.getProtocol()))
-                                  .thenComparing((o1, o2) -> o1.getPackageName().compareToIgnoreCase(o2.getPackageName()))
+                                  .thenComparing((o1, o2) -> StringUtils.defaultString(o1.getPackageName())
+                                                                       .compareToIgnoreCase(StringUtils.defaultString(o2.getPackageName())))
                          );
                          return entry.getValue();
                      })
@@ -178,9 +180,9 @@ public class RequestHelper {
      * @param psiElement
      */
     public static boolean canNavigateToTree(@NotNull PsiElement psiElement) {
-        return RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
-                            .stream()
-                            .anyMatch(requestResolver -> requestResolver.canNavigateToTree(psiElement));
+        return ReadAction.compute(() -> RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
+                                                     .stream()
+                                                     .anyMatch(requestResolver -> requestResolver.canNavigateToTree(psiElement)));
     }
 
     /**
@@ -189,9 +191,9 @@ public class RequestHelper {
      * @param psiElement 鼠标所在的元素
      */
     public static boolean canGenerateLineMarker(@NotNull PsiElement psiElement) {
-        return RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
-                            .stream()
-                            .anyMatch(requestResolver -> requestResolver.canGenerateLineMarker(psiElement));
+        return ReadAction.compute(() -> RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
+                                                     .stream()
+                                                     .anyMatch(requestResolver -> requestResolver.canGenerateLineMarker(psiElement)));
     }
 
     /**
@@ -200,11 +202,11 @@ public class RequestHelper {
      * @param psiElement 鼠标所在的元素
      */
     public static RestItem generateRestItem(@NotNull PsiElement psiElement) {
-        return RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
-                            .stream()
-                            .map(requestResolver -> requestResolver.tryGenerateRestItem(psiElement))
-                            .filter(Objects::nonNull)
-                            .findFirst()
-                            .orElse(null);
+        return ReadAction.compute(() -> RequestHelper.getAllScanRequestResolvers(psiElement.getProject())
+                                                     .stream()
+                                                     .map(requestResolver -> requestResolver.tryGenerateRestItem(psiElement))
+                                                     .filter(Objects::nonNull)
+                                                     .findFirst()
+                                                     .orElse(null));
     }
 }

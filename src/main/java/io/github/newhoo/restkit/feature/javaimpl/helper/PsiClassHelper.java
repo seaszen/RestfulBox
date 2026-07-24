@@ -10,6 +10,7 @@ import com.intellij.psi.search.PsiShortNamesCache;
 import io.github.newhoo.restkit.util.JsonUtils;
 import io.github.newhoo.restkit.util.TypeUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -24,6 +25,23 @@ import java.util.Map;
 public class PsiClassHelper {
 
     private static final int MAX_CORRELATION_COUNT = 6;
+
+    /**
+     * Resolve a stable name for tree grouping (Controller FQN).
+     * Never returns null/blank — blank packageName creates an empty node in the service tree.
+     */
+    @NotNull
+    public static String resolveControllerName(@NotNull PsiClass psiClass) {
+        String qualifiedName = psiClass.getQualifiedName();
+        if (StringUtils.isNotEmpty(qualifiedName)) {
+            return qualifiedName;
+        }
+        String name = psiClass.getName();
+        if (StringUtils.isNotEmpty(name)) {
+            return name;
+        }
+        return "Unknown";
+    }
 
     public static String convertClassToJSON(String className, Project project) {
         Object o = assemblePsiClass(className, project, 0, false);

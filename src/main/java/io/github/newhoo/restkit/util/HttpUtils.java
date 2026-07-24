@@ -36,6 +36,7 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
@@ -67,15 +68,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static io.github.newhoo.restkit.common.RestConstant.HTTP_CONNECTION_TIMEOUT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_DEFAULT_TIMEOUT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_DOWNLOAD_FILEPATH_PREFIX;
+import static io.github.newhoo.restkit.common.RestConstant.HTTP_ENABLE_COOKIE;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_FILE_DOWNLOAD_DIRECTORY;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_FILE_PREFIX;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_P12_PASSWD;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_P12_PATH;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_P12_CONTENT;
+import static io.github.newhoo.restkit.common.RestConstant.HTTP_PROJECT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_TIMEOUT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_URL_HTTP;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_URL_HTTPS;
@@ -84,6 +89,16 @@ public class HttpUtils {
     private static final Logger LOG = Logger.getInstance(HttpUtils.class);
 
     private static final String HTTP_HOSTADDRESS = "http.hostAddress";
+    private static final Map<String, BasicCookieStore> COOKIE_STORE_MAP = new ConcurrentHashMap<>();
+
+    @NotProguard
+    public static void clearCookies(String project) {
+        String key = StringUtils.defaultIfEmpty(project, "_");
+        BasicCookieStore store = COOKIE_STORE_MAP.get(key);
+        if (store != null) {
+            store.clear();
+        }
+    }
 
     @NotProguard
     public static RequestInfo request(io.github.newhoo.restkit.restful.http.HttpRequest req) {
@@ -201,7 +216,13 @@ public class HttpUtils {
                 return null;
         }
 
-        req.getHeaders().forEach(request::addHeader);
+        if (req.getHeaders() != null) {
+            for (io.github.newhoo.restkit.common.KV header : req.getHeaders()) {
+                if (header != null && StringUtils.isNotBlank(header.getKey())) {
+                    request.addHeader(header.getKey(), StringUtils.defaultString(header.getValue()));
+                }
+            }
+        }
         if (request instanceof HttpEntityEnclosingRequest) {
             if (StringUtils.isNotEmpty(req.getBody())) {
                 String body = req.getBody().trim();
@@ -246,14 +267,22 @@ public class HttpUtils {
 
         String timeout = StringUtils.defaultIfEmpty(req.getConfig().get(HTTP_TIMEOUT), HTTP_DEFAULT_TIMEOUT + "");
         int requestTimeout = (int) Double.parseDouble(timeout);
-        if (requestTimeout > 0) {
+        String connectTimeoutStr = req.getConfig().get(HTTP_CONNECTION_TIMEOUT);
+        int connectionTimeout = StringUtils.isNotEmpty(connectTimeoutStr)
+                ? (int) Double.parseDouble(connectTimeoutStr)
+                : requestTimeout;
+        if (connectionTimeout <= 0) {
+            connectionTimeout = requestTimeout > 0 ? requestTimeout : HTTP_DEFAULT_TIMEOUT;
+        }
+        if (requestTimeout > 0 || connectionTimeout > 0) {
+            int socketTimeout = requestTimeout > 0 ? requestTimeout : HTTP_DEFAULT_TIMEOUT;
             RequestConfig requestConfig = RequestConfig.custom()
                                                        // 从连接池中获取连接的超时时间
-                                                       .setConnectionRequestTimeout(requestTimeout)
-                                                       // 与服务器连接超时时间：httpclient会创建一个异步线程用以创建socket连接，此处设置该socket的连接超时时间
-                                                       .setConnectTimeout(requestTimeout)
-                                                       // 请求获取数据的超时时间(即响应时间)，单位毫秒。 如果访问一个接口，多少时间内无法返回数据，就直接放弃此次调用。
-                                                       .setSocketTimeout(requestTimeout)
+                                                       .setConnectionRequestTimeout(socketTimeout)
+                                                       // 与服务器连接超时时间
+                                                       .setConnectTimeout(connectionTimeout)
+                                                       // 请求获取数据的超时时间(即响应时间)
+                                                       .setSocketTimeout(socketTimeout)
                                                        .build();
             request.setConfig(requestConfig);
         }
@@ -283,6 +312,12 @@ public class HttpUtils {
     private static CloseableHttpClient createHttpClient(io.github.newhoo.restkit.restful.http.HttpRequest req) {
         HttpClientBuilder builder = HttpClients.custom()
                                                .setRequestExecutor(getHttpRequestExecutor());
+        boolean enableCookie = !StringUtils.equalsIgnoreCase("false", req.getConfig().get(HTTP_ENABLE_COOKIE));
+        if (enableCookie) {
+            String project = StringUtils.defaultIfEmpty(req.getConfig().get(HTTP_PROJECT), "_");
+            BasicCookieStore cookieStore = COOKIE_STORE_MAP.computeIfAbsent(project, k -> new BasicCookieStore());
+            builder.setDefaultCookieStore(cookieStore);
+        }
         SSLConnectionSocketFactory socketFactory = null;
         if (req.getUrl().startsWith(HTTP_URL_HTTPS)) {
             String p12Path = StringUtils.defaultString(req.getConfig().get(HTTP_P12_PATH));

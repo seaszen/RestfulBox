@@ -8,6 +8,7 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.util.SystemInfo;
 import io.github.newhoo.restkit.common.HttpMethod;
+import io.github.newhoo.restkit.common.KV;
 import io.github.newhoo.restkit.common.RestClientApiInfo;
 import io.github.newhoo.restkit.common.RestDataKey;
 import io.github.newhoo.restkit.config.Environment;
@@ -84,10 +85,10 @@ public class CopyCurlAction extends BaseAnAction {
         // body json
         String bodyJson = EnvironmentUtils.handlePlaceholderVariable(apiInfo.getBodyJson(), currentEnvMap, scriptMethodMap);
 
-        // header
-        Map<String, String> headerMap = ToolkitUtil.textToModifiableMap(EnvironmentUtils.handlePlaceholderVariable(apiInfo.getHeaders(), currentEnvMap, scriptMethodMap));
+        // header (List keeps duplicate keys)
+        List<KV> headerList = new ArrayList<>(ToolkitUtil.textToKVList(EnvironmentUtils.handlePlaceholderVariable(apiInfo.getHeaders(), currentEnvMap, scriptMethodMap)));
         if (HttpMethod.GET != httpMethod && StringUtils.isNotEmpty(bodyJson)) {
-            headerMap.putIfAbsent("Content-Type", "application/json;charset=UTF-8");
+            ToolkitUtil.putHeaderIfAbsent(headerList, "Content-Type", "application/json;charset=UTF-8");
         }
 
         String url = apiInfo.getUrl();
@@ -155,7 +156,7 @@ public class CopyCurlAction extends BaseAnAction {
         RequestSetting httpSetting = DataSourceHelper.getDataSource().selectRequestSetting(apiInfo.getProject(), project);
         // not windows or disable wsl
         if (!SystemInfo.isWindows || !httpSetting.isSupportForWslPath()) {
-            doCopyCurl(url, httpMethod, headerMap,
+            doCopyCurl(url, httpMethod, headerList,
                     fileParamsMap, queryOrFormParamsMap, bodyJson,
                     p12Path, p12Passwd, false, httpSetting.isGenerateMultilineCurlSnippet(), httpSetting.isSupportMinifyJson(), project);
             return;
@@ -168,9 +169,9 @@ public class CopyCurlAction extends BaseAnAction {
         actions.add(new BaseAnAction("Copy") {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
-                doCopyCurl(finalUrl, httpMethod, headerMap,
-                        fileParamsMap, queryOrFormParamsMap, bodyJson,
-                        finalP12Path, finalP12Passwd, false, httpSetting.isGenerateMultilineCurlSnippet(), httpSetting.isSupportMinifyJson(), project);
+                    doCopyCurl(finalUrl, httpMethod, headerList,
+                            fileParamsMap, queryOrFormParamsMap, bodyJson,
+                            finalP12Path, finalP12Passwd, false, httpSetting.isGenerateMultilineCurlSnippet(), httpSetting.isSupportMinifyJson(), project);
             }
         });
         if (!StringUtils.isAnyEmpty(p12Path, p12Passwd)
@@ -178,7 +179,7 @@ public class CopyCurlAction extends BaseAnAction {
             actions.add(new BaseAnAction("Copy for Wsl") {
                 @Override
                 public void actionPerformed(@NotNull AnActionEvent e) {
-                    doCopyCurl(finalUrl, httpMethod, headerMap,
+                    doCopyCurl(finalUrl, httpMethod, headerList,
                             fileParamsMap, queryOrFormParamsMap, bodyJson,
                             finalP12Path, finalP12Passwd, true, httpSetting.isGenerateMultilineCurlSnippet(), httpSetting.isSupportMinifyJson(), project);
                 }
@@ -202,7 +203,7 @@ public class CopyCurlAction extends BaseAnAction {
 
     private void doCopyCurl(String url,
                             HttpMethod httpMethod,
-                            Map<String, String> headerMap,
+                            List<KV> headerList,
                             Map<String, String> fileParamsMap,
                             Map<String, String> queryOrFormParamsMap,
                             String bodyJson,
@@ -215,9 +216,14 @@ public class CopyCurlAction extends BaseAnAction {
         sb.append("-X").append(" ").append(httpMethod.name()).append(" ");
         sb.append("'").append(url).append("' ").append(appendMultilineStr(supportMultiline));
 
-        headerMap.forEach((k, v) -> {
-            sb.append("-H").append(" ").append("'").append(k).append(": ").append(v).append("'").append(" ").append(appendMultilineStr(supportMultiline));
-        });
+        if (headerList != null) {
+            for (KV header : headerList) {
+                if (header == null || StringUtils.isBlank(header.getKey())) {
+                    continue;
+                }
+                sb.append("-H").append(" ").append("'").append(header.getKey()).append(": ").append(StringUtils.defaultString(header.getValue())).append("'").append(" ").append(appendMultilineStr(supportMultiline));
+            }
+        }
 
         if (HttpMethod.GET != httpMethod) {
             if (StringUtils.isNotEmpty(bodyJson)) {

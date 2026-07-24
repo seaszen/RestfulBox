@@ -13,5 +13,9 @@ public interface RestServiceListener {
 
     Topic<RestServiceListener> REST_SERVICE_SELECT = Topic.create("RestServiceSelect", RestServiceListener.class);
 
+    /** Fill the currently selected client tab. */
     void select(RestItem serviceItem);
+
+    /** Create a new client tab (when multi-tab enabled) and fill it. */
+    void generateInNewTab(RestItem serviceItem);
 }

@@ -19,6 +19,9 @@ public class CommonSetting {
 
     private Set<String> disabledWebFrameworks = new HashSet<>();
     private Set<HttpMethod> filterMethods = new HashSet<>();
+    /** protocols in this set are disabled/hidden */
+    private Set<String> filterProtocols = new HashSet<>();
+    private String filterKeyword = "";
 
     private boolean scanServiceWithLib = false;
 

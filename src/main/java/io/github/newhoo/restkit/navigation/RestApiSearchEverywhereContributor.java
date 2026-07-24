@@ -161,7 +161,10 @@ public class RestApiSearchEverywhereContributor implements WeightedSearchEverywh
             return true;
         }
         if (selected instanceof PsiRestItem) {
-            PsiNavigateUtil.navigate(((PsiRestItem) selected).getPsiElement());
+            PsiRestItem psiRestItem = (PsiRestItem) selected;
+            if (psiRestItem.isValid()) {
+                PsiNavigateUtil.navigate(psiRestItem.getPsiElement());
+            }
         } else {
             ToolWindowHelper.navigateToTree(selected.getUrl(), ObjectUtils.defaultIfNull(selected.getMethod(), HttpMethod.GET).name(), selected.getModuleName(), myProject);
         }
@@ -310,6 +313,9 @@ public class RestApiSearchEverywhereContributor implements WeightedSearchEverywh
 
         Set<HttpMethod> filterMethods = commonSetting.getFilterMethods();
         boolean selectAllMethod = filterMethods.isEmpty();
+        Set<String> filterProtocols = commonSetting.getFilterProtocols();
+        boolean selectAllProtocol = filterProtocols.isEmpty();
+        String filterKeyword = org.apache.commons.lang3.StringUtils.trimToEmpty(commonSetting.getFilterKeyword()).toLowerCase();
 
         // 从ALL -> URL Tab或快捷键进入时列表为空
         if (navItemList == null) {
@@ -324,20 +330,35 @@ public class RestApiSearchEverywhereContributor implements WeightedSearchEverywh
                 matcher = NameUtil.buildMatcher("*" + pattern, NameUtil.MatchingCaseSensitivity.NONE);
             }
             for (RestItem restItem : navItemList) {
-                if (selectAllMethod || (restItem.getMethod() != null && !filterMethods.contains(restItem.getMethod()))) {
-                    if (pattern.isEmpty()) {
-                        if (!consumer.process(new FoundItemDescriptor<>(restItem, 0))) {
+                if (!(selectAllMethod || (restItem.getMethod() != null && !filterMethods.contains(restItem.getMethod())))) {
+                    continue;
+                }
+                if (!(selectAllProtocol || (restItem.getProtocol() != null && !filterProtocols.contains(restItem.getProtocol())))) {
+                    continue;
+                }
+                if (org.apache.commons.lang3.StringUtils.isNotEmpty(filterKeyword)) {
+                    String url = restItem.getUrl();
+                    String description = restItem.getDescription();
+                    String packageName = restItem.getPackageName();
+                    boolean keywordMatched = (url != null && url.toLowerCase().contains(filterKeyword))
+                            || (description != null && description.toLowerCase().contains(filterKeyword))
+                            || (packageName != null && packageName.toLowerCase().contains(filterKeyword));
+                    if (!keywordMatched) {
+                        continue;
+                    }
+                }
+                if (pattern.isEmpty()) {
+                    if (!consumer.process(new FoundItemDescriptor<>(restItem, 0))) {
+                        return;
+                    }
+                } else {
+                    if (matcher.matches(restItem.getUrl())) {
+                        if (!consumer.process(new FoundItemDescriptor<>(restItem, matcher.matchingDegree(restItem.getUrl())))) {
                             return;
                         }
-                    } else {
-                        if (matcher.matches(restItem.getUrl())) {
-                            if (!consumer.process(new FoundItemDescriptor<>(restItem, matcher.matchingDegree(restItem.getUrl())))) {
-                                return;
-                            }
-                        } else if (globalSetting.isEnableFilterDescriptionInSearchEvery() && matcher.matches(restItem.getDescription())) {
-                            if (!consumer.process(new FoundItemDescriptor<>(restItem, matcher.matchingDegree(restItem.getDescription())))) {
-                                return;
-                            }
+                    } else if (globalSetting.isEnableFilterDescriptionInSearchEvery() && matcher.matches(restItem.getDescription())) {
+                        if (!consumer.process(new FoundItemDescriptor<>(restItem, matcher.matchingDegree(restItem.getDescription())))) {
+                            return;
                         }
                     }
                 }

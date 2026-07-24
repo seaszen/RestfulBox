@@ -1,6 +1,7 @@
 package io.github.newhoo.restkit.restful;
 
 import com.intellij.lang.Language;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.psi.PsiElement;
 import io.github.newhoo.restkit.common.NotProguard;
 import io.github.newhoo.restkit.common.RestItem;
@@ -27,15 +28,17 @@ public class LanguageHelper {
                                                                                                                 .collect(Collectors.toMap(LanguageResolver::getLanguage, o -> o, (o1, o2) -> o1));
 
     public static boolean canConvertToJSON(@NotNull PsiElement psiElement) {
-        return LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())
-                && LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).canConvertToJSON(psiElement);
+        return ReadAction.compute(() -> LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())
+                && LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).canConvertToJSON(psiElement));
     }
 
     public static String convertClassToJSON(@NotNull PsiElement psiElement) {
-        if (LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())) {
-            return LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).convertToJSON(psiElement);
-        }
-        return null;
+        return ReadAction.compute(() -> {
+            if (LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())) {
+                return LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).convertToJSON(psiElement);
+            }
+            return null;
+        });
     }
 
     /**
@@ -44,8 +47,6 @@ public class LanguageHelper {
      */
     @Deprecated
     public static boolean canNavigateToTree(@NotNull PsiElement psiElement) {
-//        return LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())
-//                && LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).canNavigateToTree(psiElement);
         return RequestHelper.canNavigateToTree(psiElement);
     }
 
@@ -57,8 +58,6 @@ public class LanguageHelper {
      */
     @Deprecated
     public static boolean canGenerateLineMarker(@NotNull PsiElement psiElement) {
-//        return LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())
-//                && LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).canGenerateLineMarker(psiElement);
         return RequestHelper.canGenerateLineMarker(psiElement);
     }
 
@@ -70,13 +69,6 @@ public class LanguageHelper {
      */
     @Deprecated
     public static RestItem generateRestItem(@NotNull PsiElement psiElement) {
-//        if (LANGUAGE_RESOLVER_MAP.containsKey(psiElement.getLanguage())) {
-//            RestItem restItem = LANGUAGE_RESOLVER_MAP.get(psiElement.getLanguage()).tryGenerateRestItem(psiElement);
-//            if (restItem != null) {
-//                restItem.setProject(psiElement.getProject().getName());
-//            }
-//            return restItem;
-//        }
         return RequestHelper.generateRestItem(psiElement);
     }
 }

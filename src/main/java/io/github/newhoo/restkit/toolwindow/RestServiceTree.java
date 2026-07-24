@@ -34,6 +34,7 @@ import io.github.newhoo.restkit.common.RestRegistry;
 import io.github.newhoo.restkit.common.ToolkitIcons;
 import io.github.newhoo.restkit.config.ConfigHelper;
 import io.github.newhoo.restkit.config.global.GlobalSetting;
+import io.github.newhoo.restkit.config.ide.CommonSetting;
 import io.github.newhoo.restkit.datasource.DataSourceHelper;
 import io.github.newhoo.restkit.i18n.RestBundle;
 import io.github.newhoo.restkit.intellij.CompactHelper;
@@ -78,6 +79,9 @@ public class RestServiceTree extends JPanel implements DataProvider {
     protected final RootNode myRoot = buildRoot();
 
     protected final List<RestItem> restItems = new ArrayList<>();
+
+    /** When true, tree selection should not fill the client panel (used by source navigate). */
+    private boolean suppressClientFill;
 
     public RestServiceTree(Project project) {
         myProject = project;
@@ -150,17 +154,23 @@ public class RestServiceTree extends JPanel implements DataProvider {
     }
 
     /**
-     * 跳转到节点
+     * 跳转到节点；从源码跳转时在下方新建 Tab 并填充请求
      */
     void navigateToTree(PsiElement psiElement, Supplier<RestItem> geneWhenNotExistNode) {
         Optional<RequestNode> psiMethodNode = matchNode(psiElement);
         if (psiMethodNode.isPresent()) {
-            myTreeModel.select(psiMethodNode.get(), myTree, treePath -> {
+            RequestNode node = psiMethodNode.get();
+            RestItem restItem = node.myRestItem;
+            suppressClientFill = true;
+            myTreeModel.select(node, myTree, treePath -> {
+                suppressClientFill = false;
+                if (restItem != null) {
+                    myProject.getMessageBus().syncPublisher(RestServiceListener.REST_SERVICE_SELECT).generateInNewTab(restItem);
+                }
             });
             return;
         }
         if (geneWhenNotExistNode != null) {
-            // 生成请求
             RestItem restItem = geneWhenNotExistNode.get();
             if (restItem != null) {
                 NotifierUtils.infoBalloon("", RestBundle.message("toolkit.toolwindow.tree.notexistedgenerate.msg1"), new NotificationAction(RestBundle.message("toolkit.common.btn.refresh")) {
@@ -170,8 +180,7 @@ public class RestServiceTree extends JPanel implements DataProvider {
                         notification.expire();
                     }
                 }, myProject);
-                MessageBus messageBus = RestServiceTree.this.myProject.getMessageBus();
-                messageBus.syncPublisher(RestServiceListener.REST_SERVICE_SELECT).select(restItem);
+                myProject.getMessageBus().syncPublisher(RestServiceListener.REST_SERVICE_SELECT).generateInNewTab(restItem);
             } else {
                 NotifierUtils.warnBalloon("", RestBundle.message("toolkit.toolwindow.tree.notexistedgenerate.msg2"), myProject);
             }
@@ -297,7 +306,10 @@ public class RestServiceTree extends JPanel implements DataProvider {
                                                                                           .stream()
                                                                                           .map(e -> {
                                                                                               List<RestPackage> packageList = e.getValue().stream()
-                                                                                                                               .collect(Collectors.groupingBy(RestItem::getPackageName, Collectors.toList()))
+                                                                                                                               .collect(Collectors.groupingBy(
+                                                                                                                                       item -> StringUtils.defaultIfBlank(item.getPackageName(), "default"),
+                                                                                                                                       Collectors.toList()
+                                                                                                                               ))
                                                                                                                                .entrySet()
                                                                                                                                .stream()
                                                                                                                                .map(o -> new RestPackage(o.getKey(), o.getValue()))
@@ -312,7 +324,8 @@ public class RestServiceTree extends JPanel implements DataProvider {
                                                                                                                                }.thenComparing(new Comparator<RestPackage>() {
                                                                                                                                    @Override
                                                                                                                                    public int compare(RestPackage o1, RestPackage o2) {
-                                                                                                                                       return o1.getPackageName().compareToIgnoreCase(o2.getPackageName());
+                                                                                                                                       return StringUtils.defaultString(o1.getPackageName())
+                                                                                                                                                        .compareToIgnoreCase(StringUtils.defaultString(o2.getPackageName()));
                                                                                                                                    }
                                                                                                                                }))
                                                                                                                                .collect(Collectors.toList());
@@ -330,14 +343,33 @@ public class RestServiceTree extends JPanel implements DataProvider {
     }
 
     private List<RestItem> getServiceProjects() {
-        Set<HttpMethod> filterMethods = ConfigHelper.getCommonSetting(myProject).getFilterMethods();
+        CommonSetting commonSetting = ConfigHelper.getCommonSetting(myProject);
+        Set<HttpMethod> filterMethods = commonSetting.getFilterMethods();
         boolean selectAllMethod = filterMethods.isEmpty();
+        Set<String> filterProtocols = commonSetting.getFilterProtocols();
+        boolean selectAllProtocol = filterProtocols.isEmpty();
+        String filterKeyword = StringUtils.trimToEmpty(commonSetting.getFilterKeyword()).toLowerCase();
         return DumbService.getInstance(myProject)
                           .runReadActionInSmartMode(() -> RequestHelper.buildRequestItemList(myProject)
                                                                        .stream()
                                                                        .filter(item -> selectAllMethod || (item.getMethod() != null && !filterMethods.contains(item.getMethod())))
+                                                                       .filter(item -> selectAllProtocol || (item.getProtocol() != null && !filterProtocols.contains(item.getProtocol())))
+                                                                       .filter(item -> matchKeyword(item, filterKeyword))
                                                                        .collect(Collectors.toList())
                           );
+    }
+
+    private static boolean matchKeyword(RestItem item, String filterKeyword) {
+        if (StringUtils.isEmpty(filterKeyword)) {
+            return true;
+        }
+        return containsIgnoreCase(item.getUrl(), filterKeyword)
+                || containsIgnoreCase(item.getDescription(), filterKeyword)
+                || containsIgnoreCase(item.getPackageName(), filterKeyword);
+    }
+
+    private static boolean containsIgnoreCase(String value, String keywordLower) {
+        return value != null && value.toLowerCase().contains(keywordLower);
     }
 
     @Nullable
@@ -660,12 +692,20 @@ public class RestServiceTree extends JPanel implements DataProvider {
 
         @Override
         public String getName() {
+            String packageName = StringUtils.defaultIfBlank(restPackage.getPackageName(), "default");
             if (globalSetting.isShowCompletePackageName()) {
-                return restPackage.getPackageName();
+                return packageName;
             }
-            return restPackage.getPackageName().contains(".")
-                    ? restPackage.getPackageName().substring(restPackage.getPackageName().lastIndexOf(".") + 1)
-                    : restPackage.getPackageName();
+            int idx = packageName.lastIndexOf('.');
+            if (idx >= 0 && idx < packageName.length() - 1) {
+                return packageName.substring(idx + 1);
+            }
+            if (idx == packageName.length() - 1) {
+                String trimmed = StringUtils.removeEnd(packageName, ".");
+                int idx2 = trimmed.lastIndexOf('.');
+                return idx2 >= 0 ? trimmed.substring(idx2 + 1) : StringUtils.defaultIfBlank(trimmed, "default");
+            }
+            return packageName;
         }
 
         @Override
@@ -743,6 +783,9 @@ public class RestServiceTree extends JPanel implements DataProvider {
 
         @Override
         public void handleSelection(SimpleTree tree) {
+            if (RestServiceTree.this.suppressClientFill) {
+                return;
+            }
             RequestNode selectedNode = (RequestNode) tree.getSelectedNode();
             if (selectedNode != null) {
                 MessageBus messageBus = RestServiceTree.this.myProject.getMessageBus();
@@ -760,14 +803,18 @@ public class RestServiceTree extends JPanel implements DataProvider {
             if (requestNode.myRestItem == null) {
                 return;
             }
+            if (!ConfigHelper.getGlobalSetting().isJumpToSourceOnDoubleClick()) {
+                MessageBus messageBus = RestServiceTree.this.myProject.getMessageBus();
+                messageBus.syncPublisher(RestServiceListener.REST_SERVICE_SELECT).select(requestNode.myRestItem);
+                return;
+            }
             RestItemDetail restItemDetail = RequestHelper.getRestItemDetail(requestNode.myRestItem.getProtocol());
             if (restItemDetail != null && restItemDetail.handleDoubleClickOrEnter(requestNode.myRestItem, RestServiceTree.this.myProject)) {
                 return;
             }
             if (requestNode.myRestItem instanceof PsiRestItem) {
                 PsiRestItem myRestItem = (PsiRestItem) requestNode.myRestItem;
-                PsiElement psiElement = myRestItem.getPsiElement();
-                if (!psiElement.isValid()) {
+                if (!myRestItem.isValid()) {
                     // try refresh service
                     NotifierUtils.infoBalloon("", RestBundle.message("toolkit.toolwindow.tree.iteminvalid"), new NotificationAction(RestBundle.message("toolkit.common.btn.refresh")) {
                         @Override
@@ -776,8 +823,9 @@ public class RestServiceTree extends JPanel implements DataProvider {
                             notification.expire();
                         }
                     }, RestServiceTree.this.myProject);
+                    return;
                 }
-                PsiNavigateUtil.navigate(psiElement);
+                PsiNavigateUtil.navigate(myRestItem.getPsiElement());
 //                if (OpenSourceUtil.canNavigate(psiElement)) {
 //                    ApplicationManager.getApplication().invokeLater(() -> OpenSourceUtil.navigate((Navigatable) psiElement));
 //                }

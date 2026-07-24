@@ -32,6 +32,7 @@ import io.github.newhoo.restkit.i18n.RestBundle;
 import io.github.newhoo.restkit.intellij.CompactHelper;
 import io.github.newhoo.restkit.util.CommonUtils;
 import io.github.newhoo.restkit.util.FileUtils;
+import io.github.newhoo.restkit.util.HttpUtils;
 import io.github.newhoo.restkit.util.IdeaUtils;
 import io.github.newhoo.restkit.util.JsonUtils;
 import io.github.newhoo.restkit.util.NotifierUtils;
@@ -100,6 +101,10 @@ public class RequestSettingForm {
 
     private JPanel httpPanel;
     private JTextField requestTimeoutField;
+    private JLabel connectionTimeoutLabel;
+    private JTextField connectionTimeoutField;
+    private JCheckBox enableCookieCheckBox;
+    private JButton clearCookieBtn;
     private JCheckBox generateMultilineCurlSnippetCheckBox;
     private JCheckBox supportForWslPathCheckBox;
     private JCheckBox supportMinifyBodyJsonCheckBox;
@@ -162,6 +167,10 @@ public class RequestSettingForm {
 
         httpPanel.setBorder(IdeBorderFactory.createTitledBorder(RestBundle.message("toolkit.config.request.request.http.title"), false));
         requestTimeoutLabel.setText(RestBundle.message("toolkit.config.request.request.http.requestTimeoutLabel"));
+        connectionTimeoutLabel.setText(RestBundle.message("toolkit.config.request.request.http.connectionTimeoutLabel"));
+        connectionTimeoutField.setToolTipText(RestBundle.message("toolkit.config.request.request.http.connectionTimeout.tooltip"));
+        enableCookieCheckBox.setText(RestBundle.message("toolkit.config.request.request.http.enableCookieCheckBox"));
+        clearCookieBtn.setText(RestBundle.message("toolkit.config.request.request.http.clearCookieBtn"));
         downloadDirectoryLabel.setText(RestBundle.message("toolkit.config.request.request.http.downloadDirectoryLabel"));
         defaultDateFormatLabel.setText(RestBundle.message("toolkit.config.request.request.http.defaultDateFormatLabel"));
         generateMultilineCurlSnippetCheckBox.setText(RestBundle.message("toolkit.config.request.request.http.generateMultilineCurlSnippetCheckBox"));
@@ -169,6 +178,16 @@ public class RequestSettingForm {
         supportForWslPathCheckBox.setText(RestBundle.message("toolkit.config.request.request.http.supportForWslPathCheckBox"));
         supportForWslPathCheckBox.setVisible(SystemInfo.isWindows);
         initDownloadDirectoryTextField();
+        clearCookieBtn.addActionListener(e -> {
+            String selectedProject = ObjectUtils.defaultIfNull(projectComboBox.getSelectedItem(), project.getName()).toString();
+            HttpUtils.clearCookies(selectedProject);
+            NotifierUtils.infoBalloon(
+                    RestBundle.message("toolkit.config.request.request.http.clearCookie.tip.title"),
+                    RestBundle.message("toolkit.config.request.request.http.clearCookie.tip.content"),
+                    null,
+                    project
+            );
+        });
 
         environmentPanel.setBorder(IdeBorderFactory.createTitledBorder(RestBundle.message("toolkit.config.request.environment.title"), false));
         addEnvironmentBtn.setText(RestBundle.message("toolkit.common.btn.add"));
@@ -292,7 +311,7 @@ public class RequestSettingForm {
                         "// url:         java.lang.String,               request url, can be modified by pre-request script.\n" +
                         "// method:      java.lang.String,               request method, can be modified by pre-request script.\n" +
                         "// config:      java.util.Map<String, String>,  request config, can be modified by pre-request script.\n" +
-                        "// headers:     java.util.Map<String, String>,  request headers, can be modified by pre-request script.\n" +
+                        "// headers:     java.util.List<io.github.newhoo.restkit.common.KV>,  request headers (duplicate keys allowed), can be modified by pre-request script.\n" +
                         "// params:      java.util.Map<String, String>,  request params, can be modified by pre-request script.\n" +
                         "// body:        java.lang.String,               request body, can be modified by pre-request script.\n" +
                         "//\n" +
@@ -311,13 +330,15 @@ public class RequestSettingForm {
                         "var params = req.params;\n" +
                         "var body = req.body;\n" +
                         "\n" +
+                        "var ArrayList = Java.type('java.util.ArrayList');\n" +
+                        "var KV = Java.type('io.github.newhoo.restkit.common.KV');\n" +
                         "req.url = 'http://httpbin.org/ip';\n" +
                         "req.method = 'GET';\n" +
-                        "req.headers = {\n" +
-                        "    'x-auth-ts': '' + new Date().valueOf(),\n" +
-                        "    'x-auth-traceid': '83b557cc-366a-4274-8912-078e71216c51',\n" +
-                        "};\n" +
-                        "req.headers['x-auth-token'] = '70309f2cc6a6462497f824e77baa77f9';\n" +
+                        "var newHeaders = new ArrayList();\n" +
+                        "newHeaders.add(new KV('x-auth-ts', '' + new Date().valueOf()));\n" +
+                        "newHeaders.add(new KV('x-auth-traceid', '83b557cc-366a-4274-8912-078e71216c51'));\n" +
+                        "newHeaders.add(new KV('x-auth-token', '70309f2cc6a6462497f824e77baa77f9'));\n" +
+                        "req.headers = newHeaders;\n" +
                         "req.params = { code: 'ABCD' };\n" +
                         "req.params.name = 'JavaNashorn';\n" +
                         "req.body = JSON.stringify({ reqBody: 'Hello world!' });\n" +
@@ -332,6 +353,7 @@ public class RequestSettingForm {
                         "// response attributes\n" +
                         "// original:    org.apache.http.HttpResponse,   original http response, from http-client 4.4.\n" +
                         "// body:        java.lang.String,               response body can be modified by post-request script.\n" +
+                        "// headers:     java.util.List<io.github.newhoo.restkit.common.KV>, response headers (duplicate keys allowed).\n" +
                         "//\n" +
                         "// environment: java.util.Map<String, String>,  current environment, can be modified by post-request script.\n" +
                         "//\n" +
@@ -344,6 +366,7 @@ public class RequestSettingForm {
                         "var req = request;\n" +
                         "var resp = response;\n" +
                         "var statusCode = resp.original.getStatusLine().getStatusCode();\n" +
+                        "var respHeaders = resp.headers;\n" +
                         "\n" +
                         "if (statusCode != 200) {\n" +
                         "    resp.body = JSON.stringify({ error: 'error occurred!' });\n" +
@@ -491,6 +514,8 @@ public class RequestSettingForm {
                 || !StringUtils.equals(modifiedSetting1.getPreRequestScriptPath(), modifiedSetting.getPreRequestScriptPath())
                 || !StringUtils.equals(modifiedSetting1.getPostRequestScriptPath(), modifiedSetting.getPostRequestScriptPath())
                 || modifiedSetting1.getRequestTimeout() != modifiedSetting.getRequestTimeout()
+                || modifiedSetting1.getConnectionTimeout() != modifiedSetting.getConnectionTimeout()
+                || modifiedSetting1.isEnableCookie() != modifiedSetting.isEnableCookie()
                 || modifiedSetting1.isGenerateMultilineCurlSnippet() != modifiedSetting.isGenerateMultilineCurlSnippet()
                 || (SystemInfo.isWindows && modifiedSetting1.isSupportForWslPath() != modifiedSetting.isSupportForWslPath())
                 || modifiedSetting1.isSupportMinifyJson() != modifiedSetting.isSupportMinifyJson()
@@ -526,6 +551,8 @@ public class RequestSettingForm {
         requestSetting.setPostRequestScriptPath(postRequestScriptPathTextField.getTextField().getText().trim());
 
         requestSetting.setRequestTimeout(parseIntOrZero(requestTimeoutField.getText()));
+        requestSetting.setConnectionTimeout(parseIntOrZero(connectionTimeoutField.getText()));
+        requestSetting.setEnableCookie(enableCookieCheckBox.isSelected());
         requestSetting.setGenerateMultilineCurlSnippet(generateMultilineCurlSnippetCheckBox.isSelected());
         requestSetting.setSupportForWslPath(supportForWslPathCheckBox.isSelected());
         requestSetting.setSupportMinifyJson(supportMinifyBodyJsonCheckBox.isSelected());
@@ -568,6 +595,8 @@ public class RequestSettingForm {
         postRequestScriptPathTextField.setText(requestSetting.getPostRequestScriptPath());
 
         requestTimeoutField.setText(String.valueOf(requestSetting.getRequestTimeout()));
+        connectionTimeoutField.setText(String.valueOf(requestSetting.getConnectionTimeout()));
+        enableCookieCheckBox.setSelected(requestSetting.isEnableCookie());
         generateMultilineCurlSnippetCheckBox.setSelected(requestSetting.isGenerateMultilineCurlSnippet());
         supportForWslPathCheckBox.setSelected(requestSetting.isSupportForWslPath());
         supportMinifyBodyJsonCheckBox.setSelected(requestSetting.isSupportMinifyJson());
@@ -593,6 +622,13 @@ public class RequestSettingForm {
                 Integer.parseInt(requestTimeoutField.getText());
             } catch (Exception e) {
                 throw new ConfigurationException(e.getMessage(), "Check Number Format: " + requestTimeoutField.getText());
+            }
+        }
+        if (StringUtils.isNotEmpty(connectionTimeoutField.getText())) {
+            try {
+                Integer.parseInt(connectionTimeoutField.getText());
+            } catch (Exception e) {
+                throw new ConfigurationException(e.getMessage(), "Check Number Format: " + connectionTimeoutField.getText());
             }
         }
         String dateFormatV = (String) defaultDateFormatComboBox.getSelectedItem();

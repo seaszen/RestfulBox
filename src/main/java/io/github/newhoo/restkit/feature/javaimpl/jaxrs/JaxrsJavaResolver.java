@@ -68,7 +68,7 @@ public class JaxrsJavaResolver extends BaseJaxrsResolver {
                 if (methodPath != null) {
                     String requestPath = RequestHelper.getCombinedPath(classUriPath, methodPath.getPath());
                     RestItem item = new PsiRestItem(requestPath, methodPath.getMethod(), module.getName(), getFrameworkName(), psiMethod, this);
-                    item.setPackageName(((PsiClass) psiElement).getQualifiedName());
+                    item.setPackageName(PsiClassHelper.resolveControllerName((PsiClass) psiElement));
                     itemList.add(item);
                 }
             }

@@ -28,6 +28,9 @@ public class RequestSetting {
 
     // HTTP
     private int requestTimeout = 0;
+    /** connect timeout in ms; 0 means follow requestTimeout / default */
+    private int connectionTimeout = 0;
+    private boolean enableCookie = true;
     private boolean generateMultilineCurlSnippet = false;
     private boolean supportForWslPath = false;
     private boolean supportMinifyJson = false;

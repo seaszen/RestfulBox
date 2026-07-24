@@ -1,5 +1,6 @@
 package io.github.newhoo.restkit.common;
 
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.psi.PsiElement;
 import io.github.newhoo.restkit.restful.ParamResolver;
 import lombok.Getter;
@@ -10,7 +11,7 @@ import java.util.List;
 /**
  * Restful Api Item from PsiElement which is Navigable
  * <p>
- * ToString(): Read access is allowed from inside read-action (or EDT) only (see com.intellij.openapi.application.Application.runReadAction())
+ * PSI access must run inside a read-action (EDT alone is not enough on recent IntelliJ platforms).
  *
  * @author newhoo
  */
@@ -28,7 +29,7 @@ public class PsiRestItem extends RestItem {
     private final ParamResolver resolver;
 
     public PsiRestItem(@NotNull String url, String requestMethod, @NotNull String moduleName, @NotNull String framework, @NotNull PsiElement psiElement, @NotNull ParamResolver resolver) {
-        super(url, requestMethod, resolver.buildDescription(psiElement), moduleName, framework);
+        super(url, requestMethod, ReadAction.compute(() -> resolver.buildDescription(psiElement)), moduleName, framework);
         this.psiElement = psiElement;
         this.resolver = resolver;
     }
@@ -36,24 +37,24 @@ public class PsiRestItem extends RestItem {
     @NotNull
     @Override
     public List<KV> getHeaders() {
-        return resolver.buildHeaders(psiElement);
+        return ReadAction.compute(() -> resolver.buildHeaders(psiElement));
     }
 
     @NotNull
     @Override
     public List<KV> getParams() {
-        return resolver.buildParams(psiElement);
+        return ReadAction.compute(() -> resolver.buildParams(psiElement));
     }
 
     @NotNull
     @Override
     public String getBodyJson() {
-        return resolver.buildRequestBodyJson(psiElement);
+        return ReadAction.compute(() -> resolver.buildRequestBodyJson(psiElement));
     }
 
     @Override
     public boolean isValid() {
-        return psiElement.isValid();
+        return ReadAction.compute(() -> psiElement.isValid());
     }
 
     @Override

@@ -8,7 +8,6 @@ import io.github.newhoo.restkit.common.ToolkitIcons;
 import io.github.newhoo.restkit.datasource.DataSourceHelper;
 import io.github.newhoo.restkit.i18n.RestBundle;
 import io.github.newhoo.restkit.intellij.BaseAnAction;
-import io.github.newhoo.restkit.common.LicenseDialog;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -26,10 +25,6 @@ public class SyncToDataSourceAction extends BaseAnAction {
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent actionEvent) {
-        if (true) {
-            new LicenseDialog(null).show();
-            return;
-        }
         final Project project = actionEvent.getProject();
         if (project == null) {
             return;

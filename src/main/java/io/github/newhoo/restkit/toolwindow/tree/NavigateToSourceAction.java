@@ -31,9 +31,9 @@ public class NavigateToSourceAction extends BaseAnAction implements DumbAware {
         if (items != null) {
             items.stream()
                  .filter(restItem -> restItem instanceof PsiRestItem)
-                 .forEach(restItem -> {
-                     PsiNavigateUtil.navigate(((PsiRestItem) restItem).getPsiElement());
-                 });
+                 .map(restItem -> (PsiRestItem) restItem)
+                 .filter(PsiRestItem::isValid)
+                 .forEach(restItem -> PsiNavigateUtil.navigate(restItem.getPsiElement()));
         }
     }
 }

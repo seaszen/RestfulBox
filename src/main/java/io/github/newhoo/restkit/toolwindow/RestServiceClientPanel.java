@@ -424,8 +424,8 @@ public class RestServiceClientPanel extends JPanel {
                         String url = EnvironmentUtils.handlePlaceholderVariable(requestUrl.getText(), currentEnvMap, scriptMethodMap);
                         // http method
                         HttpMethod method = (HttpMethod) Objects.requireNonNull(requestMethod.getSelectedItem());
-                        // header
-                        Map<String, String> headerMap = ToolkitUtil.textToModifiableMap(EnvironmentUtils.handlePlaceholderVariable(getEditorText(requestHeaderEditor), currentEnvMap, scriptMethodMap));
+                        // header (List keeps duplicate keys)
+                        List<KV> headerList = new ArrayList<>(ToolkitUtil.textToKVList(EnvironmentUtils.handlePlaceholderVariable(getEditorText(requestHeaderEditor), currentEnvMap, scriptMethodMap)));
                         // param
                         Map<String, String> paramMap = ToolkitUtil.textToModifiableMap(EnvironmentUtils.handlePlaceholderVariable(getEditorText(requestParamEditor), currentEnvMap, scriptMethodMap));
                         // body
@@ -442,7 +442,7 @@ public class RestServiceClientPanel extends JPanel {
                         clientData.setUrl(url);
                         clientData.setMethod(method.name());
                         clientData.setConfig(configMap);
-                        clientData.setHeaders(headerMap);
+                        clientData.setHeaders(headerList);
                         clientData.setParams(paramMap);
                         clientData.setBody(reqBody);
 
@@ -509,7 +509,7 @@ public class RestServiceClientPanel extends JPanel {
     public void showServiceDetail(RestItem restItem) {
         if (!restItem.isValid()) {
             // try refresh service
-            LOG.warn("PsiElement is invalid: " + restItem);
+            LOG.warn("PsiElement is invalid: " + restItem.getUrl());
             NotifierUtils.infoBalloon("", RestBundle.message("toolkit.toolwindow.tree.iteminvalid"), new NotificationAction(() -> RestBundle.message("toolkit.common.btn.refresh")) {
                 @Override
                 public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {

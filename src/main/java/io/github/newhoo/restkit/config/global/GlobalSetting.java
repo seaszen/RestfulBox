@@ -23,4 +23,6 @@ public class GlobalSetting {
     private boolean enableParameterLibraryShortcut = true;
     private boolean enableMethodLineMarker = true;
     private boolean enableMultiRequestClient = true;
+    /** true: double-click jumps to source; false: generate/fill request */
+    private boolean jumpToSourceOnDoubleClick = true;
 }

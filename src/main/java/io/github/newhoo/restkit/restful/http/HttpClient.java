@@ -36,8 +36,10 @@ import java.util.stream.Collectors;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_BASE_URL;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_BASE_URL_DEFAULT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_BASE_URL_PLACEHOLDER;
+import static io.github.newhoo.restkit.common.RestConstant.HTTP_CONNECTION_TIMEOUT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_DEFAULT_TIMEOUT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_DOWNLOAD_FILEPATH_PREFIX;
+import static io.github.newhoo.restkit.common.RestConstant.HTTP_ENABLE_COOKIE;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_FILE_DOWNLOAD_DIRECTORY;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_P12_CONTENT;
 import static io.github.newhoo.restkit.common.RestConstant.HTTP_P12_PASSWD;
@@ -75,6 +77,12 @@ public class HttpClient implements RestClient {
         List<KV> list = new LinkedList<>();
         list.add(new KV(HTTP_BASE_URL, HTTP_BASE_URL_PLACEHOLDER));
         list.add(new KV(HTTP_TIMEOUT, String.valueOf(timeout)));
+        int connectionTimeout = setting.getConnectionTimeout();
+        if (connectionTimeout <= 0) {
+            connectionTimeout = timeout;
+        }
+        list.add(new KV(HTTP_CONNECTION_TIMEOUT, String.valueOf(connectionTimeout)));
+        list.add(new KV(HTTP_ENABLE_COOKIE, String.valueOf(setting.isEnableCookie())));
         return list;
     }
 

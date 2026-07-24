@@ -1,5 +1,6 @@
 package io.github.newhoo.restkit.toolwindow;
 
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import io.github.newhoo.restkit.common.NotProguard;
@@ -34,7 +35,8 @@ public class ToolWindowHelper {
      * 跳转到节点，节点不存在时可生成请求
      */
     public static void navigateToTree(PsiElement psiElement, Supplier<RestItem> geneWhenNotExistNode) {
-        RestToolWindowFactory.getRestServiceToolWindow(psiElement.getProject(), restServiceToolWindow -> {
+        Project project = ReadAction.compute(psiElement::getProject);
+        RestToolWindowFactory.getRestServiceToolWindow(project, restServiceToolWindow -> {
             restServiceToolWindow.navigateToTree(psiElement, geneWhenNotExistNode);
         });
     }

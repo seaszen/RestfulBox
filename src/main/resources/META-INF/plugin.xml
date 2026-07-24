@@ -134,7 +134,11 @@
             <action id="RESTKit.SyncToDataSourceAction" class="io.github.newhoo.restkit.toolwindow.toolbar.SyncToDataSourceAction" text="Sync Apis to DataSource"/>
             <separator/>
             <reference id="RESTKit.RestApiSearchEverywhereAction"/>
+            <action id="RESTKit.Menu.GenerateRequestAction" class="io.github.newhoo.restkit.toolwindow.tree.GenerateRequestAction" text="Generate New Request" icon="AllIcons.Actions.Execute"/>
+            <action id="RESTKit.DoubleClickModeAction" class="io.github.newhoo.restkit.toolwindow.toolbar.DoubleClickModeAction" text="Double-Click Mode" icon="AllIcons.Actions.EditSource"/>
             <action id="RESTKit.MethodFilterAction" class="io.github.newhoo.restkit.toolwindow.toolbar.HttpMethodFilterAction" text="Method Filter" icon="AllIcons.General.Filter"/>
+            <action id="RESTKit.ProtocolFilterAction" class="io.github.newhoo.restkit.toolwindow.toolbar.ProtocolFilterAction" text="Protocol Filter" icon="AllIcons.General.Web"/>
+            <action id="RESTKit.KeywordFilterAction" class="io.github.newhoo.restkit.toolwindow.toolbar.KeywordFilterAction" text="Keyword Filter" icon="AllIcons.Actions.Find"/>
             <action id="RESTKit.SupportFrameworkFilterAction" class="io.github.newhoo.restkit.toolwindow.toolbar.SupportFrameworkFilterAction" text="Supported Framework Filter" icon="AllIcons.Actions.ListFiles"/>
             <action id="RESTKit.EnableLibraryAction" class="io.github.newhoo.restkit.toolwindow.toolbar.EnableLibraryAction" text="Enable Library Scanning" icon="AllIcons.ObjectBrowser.ShowLibraryContents"/>
             <!-- <separator/> -->
@@ -172,6 +176,7 @@
             <reference id="RESTKit.Menu.ExportApiAction"/>
         </group>
         <group id="RESTKit.NavigatorServiceMenu">
+            <reference id="RESTKit.Menu.GenerateRequestAction"/>
             <action id="RESTKit.Menu.EditSourceAction" class="io.github.newhoo.restkit.toolwindow.tree.NavigateToSourceAction" text="Jump to Source"/>
             <action id="RESTKit.Menu.CopyUrlAction" class="io.github.newhoo.restkit.toolwindow.client.CopyUrlAction" text="Copy URL"/>
             <reference id="RESTKit.Menu.ExportApiAction"/>

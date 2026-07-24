@@ -1,9 +1,14 @@
 package io.github.newhoo.restkit.restful.http;
 
+import io.github.newhoo.restkit.common.KV;
 import io.github.newhoo.restkit.common.NotProguard;
 import io.github.newhoo.restkit.common.Response;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.apache.http.Header;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * http response
@@ -28,6 +33,24 @@ public class HttpResponse extends Response {
         this.body0 = body;
 
         setBody(body);
+        setHeaders(extractHeaders(original));
+    }
+
+    private static List<KV> extractHeaders(org.apache.http.HttpResponse original) {
+        if (original == null) {
+            return Collections.emptyList();
+        }
+        Header[] allHeaders = original.getAllHeaders();
+        if (allHeaders == null || allHeaders.length == 0) {
+            return Collections.emptyList();
+        }
+        List<KV> list = new ArrayList<>(allHeaders.length);
+        for (Header header : allHeaders) {
+            if (header != null) {
+                list.add(new KV(header.getName(), header.getValue()));
+            }
+        }
+        return list;
     }
 
     @NotProguard

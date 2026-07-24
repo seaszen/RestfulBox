@@ -10,6 +10,7 @@ import io.github.newhoo.restkit.common.KV;
 import io.github.newhoo.restkit.common.RestItem;
 import io.github.newhoo.restkit.feature.javaimpl.MethodPath;
 import io.github.newhoo.restkit.feature.javaimpl.config.JavaFilterSetting;
+import io.github.newhoo.restkit.feature.javaimpl.helper.PsiClassHelper;
 import io.github.newhoo.restkit.intellij.KtCompactHelper;
 import io.github.newhoo.restkit.restful.RequestResolver;
 import io.github.newhoo.restkit.restful.ep.RestfulResolverProvider;
@@ -120,7 +121,16 @@ public class SpringKotlinResolver extends BaseSpringResolver {
             List<MethodPath> methodMethodPaths = getMethodMethodPaths(fun);
             List<RestItem> restItems = combineTypeAndMethod(typeMethodPaths, methodMethodPaths, fun, module);
             PsiClass[] psiClasses = fun.getContainingKtFile().getClasses();
-            restItems.forEach(e -> e.setPackageName(psiClasses.length > 0 ? psiClasses[0].getQualifiedName() : fun.getContainingKtFile().getName().replace(".kt", "")));
+            String controllerName;
+            if (psiClasses.length > 0) {
+                controllerName = PsiClassHelper.resolveControllerName(psiClasses[0]);
+            } else {
+                controllerName = StringUtils.defaultIfBlank(
+                        fun.getContainingKtFile().getName().replace(".kt", ""),
+                        "Unknown"
+                );
+            }
+            restItems.forEach(e -> e.setPackageName(controllerName));
             itemList.addAll(restItems);
         }
         return itemList;

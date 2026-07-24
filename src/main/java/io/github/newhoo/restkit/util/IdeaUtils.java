@@ -4,6 +4,7 @@ import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
 import com.intellij.lang.Language;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -120,26 +121,29 @@ public class IdeaUtils {
         if (StringUtils.isEmpty(text)) {
             text = "";
         }
-        PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText(filename, language, text);
-        DaemonCodeAnalyzer daemonCodeAnalyzer = DaemonCodeAnalyzer.getInstance(project);
-        daemonCodeAnalyzer.setImportHintsEnabled(psiFile, false);
-        FileEditor fileEditor = TextEditorProvider.getInstance().createEditor(project, psiFile.getVirtualFile());
-        if (fileEditor instanceof PsiAwareTextEditorImpl) {
-            Editor editor = ((PsiAwareTextEditorImpl) fileEditor).getEditor();
-            if (language instanceof PlainTextLanguage) {
-                daemonCodeAnalyzer.setHighlightingEnabled(psiFile, false);
-            }
+        final String editorText = text;
+        return ReadAction.compute(() -> {
+            PsiFile psiFile = PsiFileFactory.getInstance(project).createFileFromText(filename, language, editorText);
+            DaemonCodeAnalyzer daemonCodeAnalyzer = DaemonCodeAnalyzer.getInstance(project);
+            daemonCodeAnalyzer.setImportHintsEnabled(psiFile, false);
+            FileEditor fileEditor = TextEditorProvider.getInstance().createEditor(project, psiFile.getVirtualFile());
+            if (fileEditor instanceof PsiAwareTextEditorImpl) {
+                Editor editor = ((PsiAwareTextEditorImpl) fileEditor).getEditor();
+                if (language instanceof PlainTextLanguage) {
+                    daemonCodeAnalyzer.setHighlightingEnabled(psiFile, false);
+                }
 
-            EditorSettings settings = editor.getSettings();
-            settings.setGutterIconsShown(false);
+                EditorSettings settings = editor.getSettings();
+                settings.setGutterIconsShown(false);
 
-            if (StringUtils.isNotEmpty(menuGroupId) && editor instanceof EditorEx) {
-                // IdeActions.GROUP_BASIC_EDITOR_POPUP
-                ((EditorEx) editor).setContextMenuGroupId(menuGroupId);
+                if (StringUtils.isNotEmpty(menuGroupId) && editor instanceof EditorEx) {
+                    // IdeActions.GROUP_BASIC_EDITOR_POPUP
+                    ((EditorEx) editor).setContextMenuGroupId(menuGroupId);
+                }
             }
-        }
-        Disposer.register(project, fileEditor);
-        return fileEditor;
+            Disposer.register(project, fileEditor);
+            return fileEditor;
+        });
     }
 
 //    public static Editor createEditor(String filename, Project project) {
@@ -157,8 +161,10 @@ public class IdeaUtils {
 //    }
 
     public static String getEditorText(FileEditor editor) {
-        Document doc = FileDocumentManager.getInstance().getCachedDocument(editor.getFile());
-        return doc.getText();
+        return ReadAction.compute(() -> {
+            Document doc = FileDocumentManager.getInstance().getCachedDocument(editor.getFile());
+            return doc.getText();
+        });
     }
 
     public static void setEditorText(FileEditor editor, String text, Project project) {

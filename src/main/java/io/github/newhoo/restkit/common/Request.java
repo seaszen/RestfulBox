@@ -3,6 +3,8 @@ package io.github.newhoo.restkit.common;
 import io.github.newhoo.restkit.restful.RestClient;
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,7 +20,7 @@ public class Request {
     private String url;
     private String method;
     private Map<String, String> config;
-    private Map<String, String> headers;
+    private List<KV> headers = Collections.emptyList();
     private Map<String, String> params;
     private String body;
 
